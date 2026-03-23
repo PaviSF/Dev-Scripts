@@ -1,0 +1,84 @@
+# Dev Scripts
+
+Personal dev scripts installable as an npm package via GitHub.
+
+## Install
+
+```bash
+npm install --save-dev github:PaviSF/Dev-Scripts
+```
+
+## Scripts
+
+### `changed-files`
+Lists changed files in the current git repo.
+
+```bash
+# Show working directory changes
+npx changed-files
+
+# Compare between two commits/branches
+npx changed-files <commit1> <commit2>
+```
+
+Output includes a line-by-line list, a space-separated quoted list, and a total file count.
+
+---
+
+### `delete-branch`
+Interactively delete a local and/or remote git branch. Requires [`fzf`](https://github.com/junegunn/fzf).
+
+```bash
+# Pick a branch interactively
+npx delete-branch
+
+# Delete a specific branch
+npx delete-branch <branch-name>
+```
+
+---
+
+### `ota`
+Run EAS OTA updates across multiple versions and platforms (android + ios) in one command.
+
+```bash
+npx ota <channel> <version1> <version2> ... [-m "message"]
+```
+
+**Examples:**
+```bash
+npx ota staging 1.0.0
+npx ota production 1.0.0 1.1.0 1.2.0
+npx ota staging 1.0.0 -m "fix: crash on login"
+```
+
+If no message is provided, it uses the last git commit message and asks if you want to change it.
+
+---
+
+## Usage in package.json
+
+After installing, add to your project's `scripts`:
+
+```json
+"scripts": {
+  "changed-files": "changed-files",
+  "delete-branch": "delete-branch",
+  "ota": "ota staging 1.0.0"
+}
+```
+
+Then run with `npm run <script-name>`.
+
+---
+
+## Adding New Scripts
+
+1. Drop a `.sh` or `.js` file into `scripts/`
+2. Commit — `package.json` bin entries update automatically via a pre-commit hook
+3. Push
+
+## Prerequisites
+
+- [`fzf`](https://github.com/junegunn/fzf) — required for `delete-branch`
+- [EAS CLI](https://docs.expo.dev/eas-update/getting-started/) — required for `ota`

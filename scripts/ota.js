@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 const { execSync } = require("child_process");
 const readline = require("readline");
 
@@ -5,7 +6,7 @@ const args = process.argv.slice(2);
 
 if (args.length < 2) {
   console.log(
-    "Usage: node scripts/eas-multi-update.js <channel> <version1> <version2> ... [-m \"message\"]"
+    "Usage: node scripts/ota.js <channel> <version1> <version2> ... [-m \"message\"]"
   );
   process.exit(1);
 }

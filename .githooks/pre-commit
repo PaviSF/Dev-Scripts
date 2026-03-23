@@ -1,0 +1,3 @@
+#!/bin/sh
+node sync.js
+git add package.json
