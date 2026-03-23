@@ -54,6 +54,23 @@ npx ota staging 1.0.0 -m "fix: crash on login"
 
 If no message is provided, it uses the last git commit message and asks if you want to change it.
 
+> **Requirements**
+>
+> This script sets `APP_VERSION` as an environment variable before running the EAS update. For this to work, your project must:
+>
+> 1. Use `app.config.ts` or `app.config.js` instead of `app.json`
+> 2. Read the app version from `process.env.APP_VERSION`
+>
+> Example `app.config.ts`:
+> ```ts
+> export default {
+>   expo: {
+>     version: process.env.APP_VERSION || "1.0.0",
+>     // ...rest of config
+>   },
+> };
+> ```
+
 ---
 
 ## Usage in package.json
