@@ -39,17 +39,18 @@ npx delete-branch <branch-name>
 ---
 
 ### `ota`
-Run EAS OTA updates across multiple versions and platforms (android + ios) in one command.
+Run EAS OTA updates across multiple channels, versions, and platforms (android + ios) in one command.
 
 ```bash
-npx ota <channel> <version1> <version2> ... [-m "message"]
+npx ota -c <channel...> -v <version...> [-m "message"]
 ```
 
 **Examples:**
 ```bash
-npx ota staging 1.0.0
-npx ota production 1.0.0 1.1.0 1.2.0
-npx ota staging 1.0.0 -m "fix: crash on login"
+npx ota -c staging -v 1.0.0
+npx ota -c production -v 1.0.0 1.1.0 1.2.0
+npx ota -c staging production -v 1.0.0
+npx ota -c staging -v 1.0.0 -m "fix: crash on login"
 ```
 
 If no message is provided, it uses the last git commit message and asks if you want to change it.
@@ -81,7 +82,7 @@ After installing, add to your project's `scripts`:
 "scripts": {
   "changed-files": "changed-files",
   "delete-branch": "delete-branch",
-  "ota": "ota staging 1.0.0"
+  "ota": "ota -c staging -v 1.0.0"
 }
 ```
 
