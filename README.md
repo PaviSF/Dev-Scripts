@@ -74,6 +74,21 @@ If no message is provided, it uses the last git commit message and asks if you w
 
 ---
 
+### `multiple-run`
+Run multiple commands sequentially. Stops immediately if any command fails.
+
+```bash
+npx multiple-run "<cmd1>" "<cmd2>" "<cmd3>"
+```
+
+**Examples:**
+```bash
+npx multiple-run "npx expo install expo-camera" "npx expo install expo-media-library"
+npx multiple-run "npm run lint" "npm run test" "npm run build"
+```
+
+---
+
 ## Usage in package.json
 
 After installing, add to your project's `scripts`:
