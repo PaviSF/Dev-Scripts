@@ -32,7 +32,8 @@ async function run() {
 
   console.log("\nAbout to sync:");
   console.log(`  Local:  ${localPath}`);
-  console.log(`  Remote: ${remoteTarget}\n`);
+  console.log(`  Remote: ${remoteTarget}`);
+  console.log(`  Mode:   mirror — remote will end up matching local exactly (stale remote-only files deleted)\n`);
 
   const confirm = await ask("Proceed? (y/N): ");
   rl.close();
@@ -46,7 +47,7 @@ async function run() {
 
   const result = spawnSync(
     "rsync",
-    ["-avz", "-e", "ssh -o StrictHostKeyChecking=accept-new", localPath, remoteTarget],
+    ["-avz", "--delete", "-e", "ssh -o StrictHostKeyChecking=accept-new", localPath, remoteTarget],
     { stdio: "inherit" }
   );
 
