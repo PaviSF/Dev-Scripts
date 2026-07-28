@@ -1,9 +1,16 @@
 #!/usr/bin/env node
-const { execSync, exec } = require("child_process");
-const { promisify } = require("util");
+const { execSync } = require("child_process");
 const readline = require("readline");
+const fs = require("fs");
+const os = require("os");
+const path = require("path");
 
-const execAsync = promisify(exec);
+let hasTmux = true;
+try {
+  execSync("tmux -V", { stdio: "ignore" });
+} catch {
+  hasTmux = false;
+}
 
 const args = process.argv.slice(2);
 
@@ -56,28 +63,62 @@ function ask(question) {
   return new Promise((resolve) => rl.question(question, resolve));
 }
 
-async function updatePlatform(channel, version, platform, message) {
-  const label = `[${channel}/${version}/${platform}]`;
-  console.log(`  🚀 ${label} starting`);
+function sessionName(channel, version, platform) {
+  return `ota_${channel}_${version}_${platform}`.replace(/[^a-zA-Z0-9_]/g, "_");
+}
+
+// Fallback used when tmux isn't available: same one-at-a-time behavior as before.
+function updatePlatformSync(channel, version, platform, message) {
+  console.log(`  🚀 Updating ${platform}`);
 
   try {
-    const { stdout, stderr } = await execAsync(
+    execSync(
       `APP_VERSION=${version} eas update --channel ${channel} -p ${platform} -m "${message}"`,
-      { maxBuffer: 1024 * 1024 * 10 }
+      { stdio: "inherit" }
     );
-
-    if (stdout.trim()) console.log(`${label} ${stdout.trim()}`);
-    if (stderr.trim()) console.error(`${label} ${stderr.trim()}`);
-    console.log(`  ✅ ${label} done`);
-
-    return { channel, version, platform, ok: true };
+    console.log(`  ✅ ${platform} done`);
   } catch (error) {
-    console.error(`  ❌ ${label} failed`);
-    if (error.stdout?.trim()) console.log(`${label} ${error.stdout.trim()}`);
-    if (error.stderr?.trim()) console.error(`${label} ${error.stderr.trim()}`);
-
-    return { channel, version, platform, ok: false };
+    console.error(`  ❌ Failed for ${platform} on version ${version} in channel ${channel}`);
+    process.exit(1);
   }
+}
+
+// Runs a platform update in its own tmux session so android/ios truly run at
+// the same time, each with its own pty, instead of sharing one buffered exec.
+async function updatePlatformTmux(channel, version, platform, message, runDir) {
+  const label = `[${channel}/${version}/${platform}]`;
+  const name = sessionName(channel, version, platform);
+  const statusFile = path.join(runDir, `${name}.status`);
+  const logFile = path.join(runDir, `${name}.log`);
+  const scriptFile = path.join(runDir, `${name}.sh`);
+
+  const script = `#!/bin/bash
+APP_VERSION=${version} eas update --channel ${channel} -p ${platform} -m ${JSON.stringify(message)} > ${JSON.stringify(logFile)} 2>&1
+echo $? > ${JSON.stringify(statusFile)}
+`;
+  fs.writeFileSync(scriptFile, script, { mode: 0o755 });
+
+  console.log(`  🚀 ${label} starting (tmux session: ${name})`);
+  execSync(`tmux new-session -d -s ${name} bash ${JSON.stringify(scriptFile)}`);
+
+  while (!fs.existsSync(statusFile)) {
+    await new Promise((resolve) => setTimeout(resolve, 1500));
+  }
+
+  const exitCode = parseInt(fs.readFileSync(statusFile, "utf8").trim(), 10);
+  const output = fs.existsSync(logFile) ? fs.readFileSync(logFile, "utf8").trim() : "";
+
+  try {
+    execSync(`tmux kill-session -t ${name}`, { stdio: "ignore" });
+  } catch {}
+
+  const ok = exitCode === 0;
+  if (output) {
+    (ok ? console.log : console.error)(`${label}\n${output}`);
+  }
+  console.log(ok ? `  ✅ ${label} done` : `  ❌ ${label} failed`);
+
+  return { channel, version, platform, ok };
 }
 
 async function run() {
@@ -97,7 +138,12 @@ async function run() {
   console.log(`📦 Versions: ${versions.join(", ")}`);
   console.log(`📝 Message: ${finalMessage}\n`);
 
+  if (!hasTmux) {
+    console.log("ℹ️  tmux not found — running platform updates one at a time.\n");
+  }
+
   const results = [];
+  const runDir = hasTmux ? fs.mkdtempSync(path.join(os.tmpdir(), "ota-")) : null;
 
   for (const channel of channels) {
     console.log(`\n📡 Channel: ${channel}`);
@@ -105,15 +151,22 @@ async function run() {
     for (const version of versions) {
       console.log(`\n  📦 Version ${version}`);
 
-      const platformResults = await Promise.all(
-        platforms.map((platform) =>
-          updatePlatform(channel, version, platform, finalMessage)
-        )
-      );
-
-      results.push(...platformResults);
+      if (hasTmux) {
+        const platformResults = await Promise.all(
+          platforms.map((platform) =>
+            updatePlatformTmux(channel, version, platform, finalMessage, runDir)
+          )
+        );
+        results.push(...platformResults);
+      } else {
+        for (const platform of platforms) {
+          updatePlatformSync(channel, version, platform, finalMessage);
+        }
+      }
     }
   }
+
+  if (runDir) fs.rmSync(runDir, { recursive: true, force: true });
 
   rl.close();
 
