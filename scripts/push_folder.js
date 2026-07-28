@@ -12,10 +12,6 @@ function checkTool(cmd, installHint) {
 }
 
 checkTool("rsync", "It ships with macOS/Linux by default.");
-checkTool(
-  "sshpass",
-  "Install it, e.g. `brew install hudochenkov/sshpass/sshpass` on macOS, or `apt install sshpass` on Linux."
-);
 
 const rl = readline.createInterface({
   input: process.stdin,
@@ -26,58 +22,8 @@ function ask(question) {
   return new Promise((resolve) => rl.question(question, resolve));
 }
 
-const ENTER_CODES = [10, 13];
-const CTRL_C_CODE = 3;
-const BACKSPACE_CODES = [8, 127];
-
-function askHidden(question) {
-  return new Promise((resolve) => {
-    process.stdout.write(question);
-
-    let input = "";
-    const stdin = process.stdin;
-    stdin.setRawMode(true);
-    stdin.resume();
-    stdin.setEncoding("utf8");
-
-    const onData = (chunk) => {
-      for (const ch of chunk.toString()) {
-        const code = ch.charCodeAt(0);
-
-        if (ENTER_CODES.includes(code)) {
-          stdin.setRawMode(false);
-          stdin.pause();
-          stdin.removeListener("data", onData);
-          process.stdout.write("\n");
-          resolve(input);
-          return;
-        }
-
-        if (code === CTRL_C_CODE) {
-          process.stdout.write("\n");
-          process.exit(1);
-        }
-
-        if (BACKSPACE_CODES.includes(code)) {
-          if (input.length > 0) {
-            input = input.slice(0, -1);
-            process.stdout.write("\b \b");
-          }
-          continue;
-        }
-
-        input += ch;
-        process.stdout.write("*");
-      }
-    };
-
-    stdin.on("data", onData);
-  });
-}
-
 async function run() {
   const username = await ask("Username: ");
-  const password = await askHidden("Password: ");
   const host = await ask("Remote host (e.g. example.com or 192.168.1.10): ");
   const localPath = await ask("Local folder path: ");
   const remotePath = await ask("Remote folder path: ");
@@ -96,20 +42,12 @@ async function run() {
     process.exit(0);
   }
 
-  console.log("\n🚀 Syncing...\n");
+  console.log("\n🚀 Syncing (ssh will prompt for the password)...\n");
 
   const result = spawnSync(
-    "sshpass",
-    [
-      "-e",
-      "rsync",
-      "-avz",
-      "-e",
-      "ssh -o StrictHostKeyChecking=accept-new",
-      localPath,
-      remoteTarget,
-    ],
-    { stdio: "inherit", env: { ...process.env, SSHPASS: password } }
+    "rsync",
+    ["-avz", "-e", "ssh -o StrictHostKeyChecking=accept-new", localPath, remoteTarget],
+    { stdio: "inherit" }
   );
 
   if (result.status !== 0) {
