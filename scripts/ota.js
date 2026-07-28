@@ -1,6 +1,9 @@
 #!/usr/bin/env node
-const { execSync } = require("child_process");
+const { execSync, exec } = require("child_process");
+const { promisify } = require("util");
 const readline = require("readline");
+
+const execAsync = promisify(exec);
 
 const args = process.argv.slice(2);
 
@@ -53,6 +56,30 @@ function ask(question) {
   return new Promise((resolve) => rl.question(question, resolve));
 }
 
+async function updatePlatform(channel, version, platform, message) {
+  const label = `[${channel}/${version}/${platform}]`;
+  console.log(`  🚀 ${label} starting`);
+
+  try {
+    const { stdout, stderr } = await execAsync(
+      `APP_VERSION=${version} eas update --channel ${channel} -p ${platform} -m "${message}"`,
+      { maxBuffer: 1024 * 1024 * 10 }
+    );
+
+    if (stdout.trim()) console.log(`${label} ${stdout.trim()}`);
+    if (stderr.trim()) console.error(`${label} ${stderr.trim()}`);
+    console.log(`  ✅ ${label} done`);
+
+    return { channel, version, platform, ok: true };
+  } catch (error) {
+    console.error(`  ❌ ${label} failed`);
+    if (error.stdout?.trim()) console.log(`${label} ${error.stdout.trim()}`);
+    if (error.stderr?.trim()) console.error(`${label} ${error.stderr.trim()}`);
+
+    return { channel, version, platform, ok: false };
+  }
+}
+
 async function run() {
   let finalMessage = customMessage;
 
@@ -70,31 +97,35 @@ async function run() {
   console.log(`📦 Versions: ${versions.join(", ")}`);
   console.log(`📝 Message: ${finalMessage}\n`);
 
+  const results = [];
+
   for (const channel of channels) {
     console.log(`\n📡 Channel: ${channel}`);
 
     for (const version of versions) {
       console.log(`\n  📦 Version ${version}`);
 
-      for (const platform of platforms) {
-        try {
-          console.log(`  🚀 Updating ${platform}`);
+      const platformResults = await Promise.all(
+        platforms.map((platform) =>
+          updatePlatform(channel, version, platform, finalMessage)
+        )
+      );
 
-          execSync(
-            `APP_VERSION=${version} eas update --channel ${channel} -p ${platform} -m "${finalMessage}"`,
-            { stdio: "inherit" }
-          );
-
-          console.log(`  ✅ ${platform} done`);
-        } catch (error) {
-          console.error(`  ❌ Failed for ${platform} on version ${version} in channel ${channel}`);
-          process.exit(1);
-        }
-      }
+      results.push(...platformResults);
     }
   }
 
   rl.close();
+
+  const failures = results.filter((r) => !r.ok);
+  if (failures.length > 0) {
+    console.log(`\n❌ ${failures.length} update(s) failed:`);
+    for (const f of failures) {
+      console.log(`   - ${f.channel} / ${f.version} / ${f.platform}`);
+    }
+    process.exit(1);
+  }
+
   console.log("\n🎉 All updates completed\n");
 }
 
