@@ -6,7 +6,8 @@
     "changed-files": "./scripts/changed_files.sh",
     "delete-branch": "./scripts/delete_branch.sh",
     "ota": "./scripts/ota.js",
-    "multiple-run": "./scripts/multiple_run.js"
+    "multiple-run": "./scripts/multiple_run.js",
+    "push-folder": "./scripts/push_folder.js"
   },
   "scripts": {
     "sync": "node sync.js",
